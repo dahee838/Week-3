@@ -1,97 +1,265 @@
 
-
-sketch.js 
-1
-​
-2
 var ball;
-3
 var p1, p2;
-4
 var p1Score = 0;
-5
 var p2Score = 0;
-6
 var p1Up = false;
-7
 var p1Down = false;
-8
 var p2Up = false;
-9
 var p2Down = false;
-10
 var margin = 20;
-11
 var cnv;
-12
 var paddleBounceSFX, hitColliderSFX;
-13
 var collider;
-14
-​
-15
+
 function preload() {
-16
-​
-17
+
 }
-18
-​
-19
+
 function centerCanvas() {
-20
   var x = (windowWidth - width) / 2;
-21
   var y = (windowHeight - height) / 2;
-22
   cnv.position(x, y);
-23
 }
-24
-​
-25
+
 function windowResized() {
-26
   centerCanvas();
-27
 }
-28
-​
-29
+
 function setup() {
-30
   paddleBounceSFX = loadSound('assets/ballCollide.mp3', function() { console.log("loaded"); });
-31
   hitColliderSFX = loadSound('assets/hitCollider.mp3', function() { console.log("loaded"); });
-32
   cnv = createCanvas(900, 500);
-33
   centerCanvas();
-34
   ball = new Ball();
-35
   p1 = new Paddle(0);
-36
   p2 = new Paddle(1);
-37
   collider = new Collider();
-38
 }
-39
-​
-40
+
 function draw() {
-41
   background(0);
-42
   drawField();
-43
-​
-44
+
   p1.move(p1Up, p1Down);
-45
   p2.move(p2Up, p2Down);
-46
-​
-47
+
   ball.update();
+  p1.update();
+  p2.update();
+  collider.update();
+
+  p1.display();
+  p2.display();
+  collider.display();
+  ball.display(); 
+
+  checkCollisionWithBall(ball, p1);
+  checkCollisionWithBall(ball, p2);
+  checkCollisionWithBall(ball, collider);
+}
+
+function drawField() {
+  stroke(255);
+  noFill();
+  line(0, margin, width, margin);
+  line(0, height - margin, width, height - margin);
+  for (var i = margin; i < height - margin - 15; i += 35) {
+    var start = i;
+    var finish = start + 15;
+    line(width/2, start, width/2, finish);
+  }
+
+  fill(255);
+  noStroke();
+  textSize(64);
+  textAlign(CENTER, CENTER);
+  text(p1Score, width/2-50, 70);
+  text(p2Score, width/2+50, 70);
+}
+
+function checkCollisionWithBall(ball, other) {
+  if (ball.pos.x + ball.width/2 > other.pos.x && 
+      ball.pos.x + ball.width/2 < other.pos.x + other.width && 
+      ball.pos.y + ball.height/2 > other.pos.y &&
+      ball.pos.y + ball.height/2 < other.pos.y + other.height) {
+    ball.collided(other);
+    other.collided(ball);
+  }
+}
+
+function Ball() {
+  this.pos = createVector(width/2, height/2);
+  this.vel = createVector(0, 0);
+  this.angle = random(TWO_PI);
+  this.speed = 7;
+  this.vel.x = cos(this.angle) * this.speed;
+  this.vel.y = sin(this.angle) * this.speed;
+  this.width = 15;
+  this.height = 15;
+
+  this.update = function() {
+    if (this.pos.x < -this.width) {
+      p2Score++;
+      this.resetAfterPoint(0);
+    } else if (this.pos.x > width) {
+      p1Score++;
+      this.resetAfterPoint(1);
+    }
+
+    if (this.pos.y < margin || 
+        this.pos.y > height - margin - this.height) {
+      this.vel.y *= -1;
+    }
+
+    this.pos.add(this.vel);
+  };
+
+  this.display = function() {
+    noStroke();
+    fill(255);
+    rectMode(CORNER);
+    rect(this.pos.x, this.pos.y, this.width, this.height);
+  }
+
+  this.resetAfterPoint = function(whichPlayer) {
+    this.pos = createVector(width/2, height/2);
+    this.vel = createVector(0, 0);
+    this.speed = 7;
+    if (whichPlayer === 1) {
+      this.getStartingAngle(4 * PI/6, 8 * PI/6);
+    } else if (whichPlayer === 0) {
+      this.getStartingAngle(-PI/3, PI/3);
+    }
+  }
+
+  this.getStartingAngle = function(angleLow, angleHigh) {  
+    var angle = random(angleLow, angleHigh);
+    this.vel.x = cos(angle) * this.speed;
+    this.vel.y = sin(angle) * this.speed;
+  }
+
+  this.collided = function(other) {
+    
+  }
+};
+
+function Paddle(num) {
+  this.num = num;
+  this.width = 15;
+  this.height = 80;
+  if (num == 0) {
+    this.pos = createVector(margin, height/2);
+  } else {
+    this.pos = createVector(width-this.width-margin, height/2);
+  }
+  this.vel = createVector(0, 0);
+
+  this.update = function() {
+    this.pos.add(this.vel);
+  }
+
+  this.display = function() {
+    noStroke();
+    fill(255);
+    rectMode(CORNER);
+    rect(this.pos.x, this.pos.y, this.width, this.height);
+  }
+
+  this.move = function(up, down) {
+    this.vel.y = 0;
+    if (up) {
+      if (this.pos.y > margin) {
+        this.vel.y = -5;
+      } else {
+        this.pos.y = margin;
+      } 
+    }
+    if (down) {
+      if (this.pos.y + this.height < height - margin) {
+        this.vel.y = 5;
+      } else {
+        this.pos.y = height - this.height - margin;
+      }
+    } 
+  }
+
+  this.collided = function(other) {
+    var diff = (other.pos.y + other.height/2) - this.pos.y;
+    if (this.num === 0) {
+      angle = map(diff, 0, this.height, -PI/3, PI/3);
+    }
+    if (this.num === 1) {
+      angle = map(diff, this.height, 0, 4*PI/6, 8*PI/6);
+    }
+
+    paddleBounceSFX.play();
+  }
+}
+
+function Collider() {
+  this.pos = createVector(width/2, height/2);
+  this.vel = createVector(0, 0);
+  this.angle = random(TWO_PI);
+  this.speed = 7;
+  this.vel.x = cos(this.angle) * this.speed;
+  this.vel.y = sin(this.angle) * this.speed;
+  this.update = function() {
+  this.angle = (this.angle + 0.05) % TWO_PI;
+  this.vel.y = sin(this.angle) * this.speed;
+
+  }
+
+  this.display = function() {
+    fill(255,0,0);
+    rect(this.pos.x, this.pos.y, 10, 10);
+  }
+
+  this.collided = function(other) {
+  this.update = function() {
+    if (this.pos.x < -this.width) {
+      p2Score--;
+      this.resetAfterPoint(0);
+    } else if (this.pos.x > width) {
+      p1Score--;
+      this.resetAfterPoint(1);
+    }
+    if (!hitColliderSFX.isPlaying()) {
+      hitColliderSFX.play();
+			
+    }
+  }
+}
+
+function keyPressed() {
+  if (key === 'W') {
+    p1Up = true;
+  }
+  if (key === 'S') {
+    p1Down = true;
+  }
+
+  if (keyCode === UP_ARROW) {
+    p2Up = true;
+  }
+  if (keyCode === DOWN_ARROW) {
+    p2Down = true;
+  }
+}
+
+function keyReleased() {
+  if (key === 'W') {
+    p1Up = false;
+  }
+  if (key === 'S') {
+    p1Down = false;
+  }
+
+  if (keyCode === UP_ARROW) {
+    p2Up = false;
+  }
+  if (keyCode === DOWN_ARROW) {
+    p2Down = false;
+  }
+}
+}
